@@ -8,6 +8,9 @@ The notebook is written for a non-technical business audience and covers:
 - Exploratory data analysis with visualizations (pair plots, boxplots, 3D scatter) and plain-language insights
 - Simple feature engineering
 - Training basic machine learning models for flower classification and explaining their business value
+- Exploratory data analysis and visualizations
+- Simple feature engineering
+- Training basic machine learning models
 - Interpreting results and key takeaways
 
 To view the analysis, open the notebook with Jupyter:
