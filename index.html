@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iris Dataset Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: #f9fafb;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        .metric-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 24px;
+        }
+        .controls {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+        select {
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-left: 8px;
+        }
+        select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 32px;
+        }
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        .species-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .setosa { background-color: #ff6b6b; }
+        .versicolor { background-color: #4ecdc4; }
+        .virginica { background-color: #45b7d1; }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen p-6">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Iris Dataset Dashboard</h1>
+            <p class="text-gray-600">Interactive analysis of the classic Iris flower dataset</p>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="flex flex-wrap gap-6">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Filter by Species:</label>
+                    <select id="speciesFilter" onchange="updateDashboard()">
+                        <option value="All">All Species</option>
+                        <option value="setosa">Setosa</option>
+                        <option value="versicolor">Versicolor</option>
+                        <option value="virginica">Virginica</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Primary Metric:</label>
+                    <select id="metricSelect" onchange="updateDashboard()">
+                        <option value="sepal_length">Sepal Length</option>
+                        <option value="sepal_width">Sepal Width</option>
+                        <option value="petal_length">Petal Length</option>
+                        <option value="petal_width">Petal Width</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="grid-4 mb-8" id="metrics">
+            <!-- Metrics will be populated by JavaScript -->
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid-2 mb-8">
+            <!-- Bar Chart -->
+            <div class="metric-card">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Average Measurements by Species</h2>
+                <div class="chart-container">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Scatter Plot -->
+            <div class="metric-card">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Sepal Length vs Width</h2>
+                <div class="chart-container">
+                    <canvas id="scatterChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Pie Chart -->
+            <div class="metric-card">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Species Distribution</h2>
+                <div class="chart-container">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Line Chart -->
+            <div class="metric-card">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Sample Distribution</h2>
+                <div class="chart-container">
+                    <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="metric-card">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Raw Data</h2>
+            <div style="overflow-x: auto;">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Species</th>
+                            <th>Sepal Length</th>
+                            <th>Sepal Width</th>
+                            <th>Petal Length</th>
+                            <th>Petal Width</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Data will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Iris dataset
+        const irisData = [
+            {species: 'setosa', sepal_length: 5.1, sepal_width: 3.5, petal_length: 1.4, petal_width: 0.2},
+            {species: 'setosa', sepal_length: 4.9, sepal_width: 3.0, petal_length: 1.4, petal_width: 0.2},
+            {species: 'setosa', sepal_length: 4.7, sepal_width: 3.2, petal_length: 1.3, petal_width: 0.2},
+            {species: 'setosa', sepal_length: 4.6, sepal_width: 3.1, petal_length: 1.5, petal_width: 0.2},
+            {species: 'setosa', sepal_length: 5.0, sepal_width: 3.6, petal_length: 1.4, petal_width: 0.2},
+            {species: 'setosa', sepal_length: 5.4, sepal_width: 3.9, petal_length: 1.7, petal_width: 0.4},
+            {species: 'setosa', sepal_length: 4.6, sepal_width: 3.4, petal_length: 1.4, petal_width: 0.3},
+            {species: 'setosa', sepal_length: 5.0, sepal_width: 3.4, petal_length: 1.5, petal_width: 0.2},
+            {species: 'setosa', sepal_length: 4.4, sepal_width: 2.9, petal_length: 1.4, petal_width: 0.2},
+            {species: 'setosa', sepal_length: 4.9, sepal_width: 3.1, petal_length: 1.5, petal_width: 0.1},
+            {species: 'versicolor', sepal_length: 7.0, sepal_width: 3.2, petal_length: 4.7, petal_width: 1.4},
+            {species: 'versicolor', sepal_length: 6.4, sepal_width: 3.2, petal_length: 4.5, petal_width: 1.5},
+            {species: 'versicolor', sepal_length: 6.9, sepal_width: 3.1, petal_length: 4.9, petal_width: 1.5},
+            {species: 'versicolor', sepal_length: 5.5, sepal_width: 2.3, petal_length: 4.0, petal_width: 1.3},
+            {species: 'versicolor', sepal_length: 6.5, sepal_width: 2.8, petal_length: 4.6, petal_width: 1.5},
+            {species: 'versicolor', sepal_length: 5.7, sepal_width: 2.8, petal_length: 4.5, petal_width: 1.3},
+            {species: 'versicolor', sepal_length: 6.3, sepal_width: 3.3, petal_length: 4.7, petal_width: 1.6},
+            {species: 'versicolor', sepal_length: 4.9, sepal_width: 2.4, petal_length: 3.3, petal_width: 1.0},
+            {species: 'versicolor', sepal_length: 6.6, sepal_width: 2.9, petal_length: 4.6, petal_width: 1.3},
+            {species: 'versicolor', sepal_length: 5.2, sepal_width: 2.7, petal_length: 3.9, petal_width: 1.4},
+            {species: 'virginica', sepal_length: 6.3, sepal_width: 3.3, petal_length: 6.0, petal_width: 2.5},
+            {species: 'virginica', sepal_length: 5.8, sepal_width: 2.7, petal_length: 5.1, petal_width: 1.9},
+            {species: 'virginica', sepal_length: 7.1, sepal_width: 3.0, petal_length: 5.9, petal_width: 2.1},
+            {species: 'virginica', sepal_length: 6.3, sepal_width: 2.9, petal_length: 5.6, petal_width: 1.8},
+            {species: 'virginica', sepal_length: 6.5, sepal_width: 3.0, petal_length: 5.8, petal_width: 2.2},
+            {species: 'virginica', sepal_length: 7.6, sepal_width: 3.0, petal_length: 6.6, petal_width: 2.1},
+            {species: 'virginica', sepal_length: 4.9, sepal_width: 2.5, petal_length: 4.5, petal_width: 1.7},
+            {species: 'virginica', sepal_length: 7.3, sepal_width: 2.9, petal_length: 6.3, petal_width: 1.8},
+            {species: 'virginica', sepal_length: 6.7, sepal_width: 2.5, petal_length: 5.8, petal_width: 1.8},
+            {species: 'virginica', sepal_length: 7.2, sepal_width: 3.6, petal_length: 6.1, petal_width: 2.5}
+        ];
+
+        const colors = {
+            setosa: '#ff6b6b',
+            versicolor: '#4ecdc4',
+            virginica: '#45b7d1'
+        };
+
+        let charts = {};
+
+        function getFilteredData() {
+            const selectedSpecies = document.getElementById('speciesFilter').value;
+            return selectedSpecies === 'All' 
+                ? irisData 
+                : irisData.filter(d => d.species === selectedSpecies);
+        }
+
+        function calculateMetrics(data, metric) {
+            const values = data.map(d => d[metric]);
+            const sum = values.reduce((a, b) => a + b, 0);
+            const avg = sum / values.length;
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            return { avg: avg.toFixed(2), min: min.toFixed(2), max: max.toFixed(2) };
+        }
+
+        function calculateAverages() {
+            const grouped = irisData.reduce((acc, item) => {
+                if (!acc[item.species]) {
+                    acc[item.species] = { 
+                        sepal_length: 0, sepal_width: 0, 
+                        petal_length: 0, petal_width: 0, count: 0 
+                    };
+                }
+                acc[item.species].sepal_length += item.sepal_length;
+                acc[item.species].sepal_width += item.sepal_width;
+                acc[item.species].petal_length += item.petal_length;
+                acc[item.species].petal_width += item.petal_width;
+                acc[item.species].count += 1;
+                return acc;
+            }, {});
+
+            return Object.entries(grouped).map(([species, data]) => ({
+                species,
+                sepal_length: (data.sepal_length / data.count).toFixed(2),
+                sepal_width: (data.sepal_width / data.count).toFixed(2),
+                petal_length: (data.petal_length / data.count).toFixed(2),
+                petal_width: (data.petal_width / data.count).toFixed(2)
+            }));
+        }
+
+        function updateMetrics() {
+            const filteredData = getFilteredData();
+            const metrics = ['sepal_length', 'sepal_width', 'petal_length', 'petal_width'];
+            const metricsContainer = document.getElementById('metrics');
+            
+            metricsContainer.innerHTML = metrics.map(metric => {
+                const stats = calculateMetrics(filteredData, metric);
+                const title = metric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                return `
+                    <div class="metric-card">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">${title}</h3>
+                        <p class="text-2xl font-bold text-blue-600">${stats.avg}</p>
+                        <p class="text-sm text-gray-500 mb-2">Average</p>
+                        <div class="flex justify-between text-xs text-gray-400">
+                            <span>Min: ${stats.min}</span>
+                            <span>Max: ${stats.max}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateTable() {
+            const filteredData = getFilteredData().slice(0, 10);
+            const tableBody = document.getElementById('tableBody');
+            
+            tableBody.innerHTML = filteredData.map((row, index) => `
+                <tr style="background-color: ${index % 2 === 0 ? 'white' : '#f9fafb'}">
+                    <td>
+                        <span class="species-dot ${row.species}"></span>
+                        ${row.species.charAt(0).toUpperCase() + row.species.slice(1)}
+                    </td>
+                    <td>${row.sepal_length}</td>
+                    <td>${row.sepal_width}</td>
+                    <td>${row.petal_length}</td>
+                    <td>${row.petal_width}</td>
+                </tr>
+            `).join('');
+        }
+
+        function createBarChart() {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            const averageData = calculateAverages();
+            
+            if (charts.barChart) charts.barChart.destroy();
+            
+            charts.barChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: averageData.map(d => d.species.charAt(0).toUpperCase() + d.species.slice(1)),
+                    datasets: [
+                        {
+                            label: 'Sepal Length',
+                            data: averageData.map(d => parseFloat(d.sepal_length)),
+                            backgroundColor: '#ff6b6b',
+                            borderColor: '#ff6b6b',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Sepal Width',
+                            data: averageData.map(d => parseFloat(d.sepal_width)),
+                            backgroundColor: '#4ecdc4',
+                            borderColor: '#4ecdc4',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Petal Length',
+                            data: averageData.map(d => parseFloat(d.petal_length)),
+                            backgroundColor: '#45b7d1',
+                            borderColor: '#45b7d1',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Petal Width',
+                            data: averageData.map(d => parseFloat(d.petal_width)),
+                            backgroundColor: '#96ceb4',
+                            borderColor: '#96ceb4',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createScatterChart() {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            
+            if (charts.scatterChart) charts.scatterChart.destroy();
+            
+            const datasets = Object.keys(colors).map(species => ({
+                label: species.charAt(0).toUpperCase() + species.slice(1),
+                data: irisData
+                    .filter(d => d.species === species)
+                    .map(d => ({x: d.sepal_length, y: d.sepal_width})),
+                backgroundColor: colors[species],
+                borderColor: colors[species]
+            }));
+            
+            charts.scatterChart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            display: true,
+                            title: { display: true, text: 'Sepal Length' }
+                        },
+                        y: {
+                            display: true,
+                            title: { display: true, text: 'Sepal Width' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createPieChart() {
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            
+            if (charts.pieChart) charts.pieChart.destroy();
+            
+            const speciesCount = irisData.reduce((acc, item) => {
+                acc[item.species] = (acc[item.species] || 0) + 1;
+                return acc;
+            }, {});
+            
+            charts.pieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(speciesCount).map(s => s.charAt(0).toUpperCase() + s.slice(1)),
+                    datasets: [{
+                        data: Object.values(speciesCount),
+                        backgroundColor: Object.keys(speciesCount).map(species => colors[species])
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function createLineChart() {
+            const ctx = document.getElementById('lineChart').getContext('2d');
+            const selectedMetric = document.getElementById('metricSelect').value;
+            const filteredData = getFilteredData();
+            
+            if (charts.lineChart) charts.lineChart.destroy();
+            
+            charts.lineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: filteredData.map((_, i) => i + 1),
+                    datasets: [{
+                        label: selectedMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                        data: filteredData.map(d => d[selectedMetric]),
+                        borderColor: '#8884d8',
+                        backgroundColor: 'rgba(136, 132, 216, 0.1)',
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Sample Index' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Value' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDashboard() {
+            updateMetrics();
+            updateTable();
+            createBarChart();
+            createScatterChart();
+            createPieChart();
+            createLineChart();
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDashboard();
+        });
+    </script>
+</body>
+</html>
